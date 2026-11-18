@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#121418">
+<title>PicoKeys</title>
+<style>
+:root{
+  --bg:#121418; --panel:#1a1d23; --key:#2a2e37; --key-hi:#343944; --key-dn:#4a5160;
+  --edge:#0b0c0f; --txt:#e8eaee; --dim:#8b92a0; --acc:#4fd1b5; --acc-dim:#2b7c6b;
+  --warn:#f2b84b; --bad:#ef6a6a;
+  --u:48px; --gap:4px; --fs:15px; --r:7px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);overflow:hidden;
+  font:500 14px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none;touch-action:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;gap:var(--gap);
+  padding:max(4px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-right)) max(4px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left))}
+
+/* ---------- top bar ---------- */
+#bar{display:flex;align-items:center;gap:6px;height:clamp(30px,calc(var(--u)*.7),44px);flex:none;min-width:0}
+.seg{display:flex;background:var(--panel);border-radius:999px;padding:3px;gap:2px;flex:none}
+.seg button{all:unset;padding:0 12px;height:clamp(24px,calc(var(--u)*.55),36px);display:flex;align-items:center;gap:6px;
+  border-radius:999px;color:var(--dim);font-size:clamp(12px,calc(var(--fs)*.85),15px);font-weight:600;cursor:pointer;white-space:nowrap}
+.seg button.on{background:var(--key-hi);color:var(--txt)}
+.seg button svg{width:1.15em;height:1.15em}
+#tabs .seg button{padding:0 10px}
+#tabs{display:flex;min-width:0;overflow:hidden}
+.mode-tp #tabs{visibility:hidden}
+.spacer{flex:1}
+.chip{all:unset;display:flex;align-items:center;gap:6px;background:var(--panel);border-radius:999px;padding:0 11px;
+  height:clamp(24px,calc(var(--u)*.55),36px);font-size:clamp(11px,calc(var(--fs)*.8),14px);color:var(--dim);white-space:nowrap;cursor:pointer}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--bad);flex:none}
+.dot.ok{background:var(--acc)} .dot.mid{background:var(--warn)}
+.chip b{color:var(--txt);font-weight:600}
+#caps{display:none} #caps.on{display:flex;color:var(--acc)}
+.icon{all:unset;width:clamp(28px,calc(var(--u)*.62),40px);height:clamp(24px,calc(var(--u)*.55),36px);display:flex;align-items:center;justify-content:center;
+  background:var(--panel);border-radius:999px;color:var(--dim);cursor:pointer;flex:none}
+.icon svg{width:18px;height:18px}
+
+/* ---------- main area ---------- */
+main{flex:1;min-height:0;position:relative}
+.view{position:absolute;inset:0;display:none}
+.mode-kb #kb,.mode-tp #tp{display:flex}
+
+/* keyboard */
+#kb{flex-direction:column;gap:var(--gap)}
+.row{display:flex;gap:var(--gap);flex:1 1 0;min-height:0}
+#strip{flex:.78 1 0}
+.k{flex:var(--w,1) 1 0;min-width:0;position:relative;display:flex;align-items:center;justify-content:center;
+  background:var(--key);border-radius:var(--r);box-shadow:0 2px 0 var(--edge);color:var(--txt);
+  font-size:var(--fs);font-weight:500;touch-action:none;overflow:hidden;white-space:nowrap}
+.k .s{position:absolute;top:10%;left:12%;font-size:.68em;color:var(--dim)}
+.k.sym .p{margin-top:.55em}
+.k.fn{background:#23272f;font-size:calc(var(--fs)*.78);color:#c9ced8}
+.k.wide{font-size:calc(var(--fs)*.8);color:#c9ced8}
+.k.sym.shifted .s{color:var(--acc)} .k.sym.shifted .p{color:var(--dim)}
+.k.down{background:var(--key-dn);transform:translateY(1px);box-shadow:0 1px 0 var(--edge)}
+.k.mod.held{background:var(--acc-dim)}
+.k.mod.latched{box-shadow:inset 0 0 0 2px var(--acc),0 2px 0 var(--edge);color:var(--acc)}
+.k.mod.locked{background:var(--acc);color:#06221c}
+.k.mod.locked::after{content:"";position:absolute;top:12%;right:10%;width:5px;height:5px;border-radius:50%;background:#06221c}
+.k.capson::after{content:"";position:absolute;top:12%;right:10%;width:6px;height:6px;border-radius:50%;background:var(--acc)}
+.k.media svg{width:1.3em;height:1.3em}
+.k.sc{font-size:calc(var(--fs)*.74);flex-direction:column;gap:2px;color:#d7dbe3}
+.k.sc small{font-size:.78em;color:var(--dim)}
+
+/* touchpad */
+#tp{flex-direction:column;gap:var(--gap)}
+#padwrap{flex:1;display:flex;gap:var(--gap);min-height:0}
+#pad{flex:1;border-radius:14px;background:
+  radial-gradient(circle at 50% 50%,#1f232b 0,#191c22 70%);box-shadow:inset 0 0 0 1px #262a33;position:relative;touch-action:none}
+#pad .hint{position:absolute;inset:auto 0 12px 0;text-align:center;color:#4a505c;font-size:12px;pointer-events:none}
+#vscroll{width:clamp(36px,calc(var(--u)*.9),60px);border-radius:14px;background:#181b21;box-shadow:inset 0 0 0 1px #262a33;
+  display:flex;align-items:center;justify-content:center;color:#4a505c;touch-action:none}
+#vscroll svg{width:18px;height:60%}
+#tpbar{display:flex;gap:var(--gap);height:clamp(44px,calc(var(--u)*1.15),78px);flex:none}
+#tpbar .k.btn{background:#30353f;font-size:calc(var(--fs)*.85)}
+#tpbar .k.mod{flex:.9 1 0;font-size:calc(var(--fs)*.78)}
+
+/* banners & overlays */
+#banner{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 50px);transform:translateX(-50%);
+  background:#2c2410;color:var(--warn);border:1px solid #5a4716;padding:7px 14px;border-radius:999px;font-size:13px;
+  display:none;z-index:5;pointer-events:none;white-space:nowrap}
+#banner.show{display:block}
+.offline main{opacity:.45}
+.overlay{position:fixed;inset:0;background:rgba(6,7,9,.72);display:none;align-items:center;justify-content:center;z-index:10;padding:16px}
+.overlay.show{display:flex}
+.card{max-height:100%;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;background:#1b1e24;border:1px solid #2c3039;border-radius:16px;padding:18px 18px 16px;max-width:420px;width:100%;
+  box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.card h2{margin:0 0 6px;font-size:17px}
+.card p{margin:0 0 14px;color:var(--dim);font-size:14px;line-height:1.4}
+.btnrow{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.b{all:unset;padding:9px 16px;border-radius:10px;background:var(--key-hi);color:var(--txt);font-weight:600;font-size:14px;cursor:pointer;text-align:center}
+.b.pri{background:var(--acc);color:#06221c}
+.b.danger{background:transparent;color:var(--bad);box-shadow:inset 0 0 0 1px #5a2a2a}
+#rotate .card{text-align:center;max-width:320px}
+#rotate svg{width:56px;height:56px;color:var(--acc);margin:4px auto 10px;display:block;animation:spin 2.2s ease-in-out infinite}
+@keyframes spin{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+#rotate .btnrow{justify-content:center}
+#secure{z-index:13} #cna{z-index:12}
+#secure .card{max-width:560px}
+#sForm{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+#sForm .full{grid-column:1/-1}
+@media (max-height:520px){ .lock{display:none} #secure .card{padding:12px 16px} #secure p{margin-bottom:6px} }
+#secure .stack{padding:4px 0}
+.lock{width:40px;height:40px;color:var(--acc);margin-bottom:6px}
+.done-step{font-size:13px;color:var(--txt);background:#14261f;border:1px solid #23493d;border-radius:10px;padding:10px 12px;margin:8px 0 0;line-height:1.45}
+
+/* settings */
+#settings .card{max-width:640px;max-height:100%;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:14px 18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:4px 22px}
+.sect{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);margin:12px 0 4px}
+.field{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #262a32;font-size:14px}
+.field span small{display:block;color:var(--dim);font-size:12px;margin-top:2px}
+select,input[type=text],input[type=password]{background:#111317;border:1px solid #333844;color:var(--txt);border-radius:8px;
+  padding:7px 9px;font:inherit;font-size:14px;min-width:0;-webkit-user-select:text;user-select:text}
+input[type=text],input[type=password]{width:100%}
+input[type=range]{width:130px;accent-color:var(--acc)}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
+.stack{display:flex;flex-direction:column;gap:6px;padding:7px 0}
+.msg{font-size:13px;color:var(--warn);min-height:1em;margin:6px 0}
+.ver{color:#5d6370;font-size:12px;margin-top:10px}
+</style>
+</head>
+<body>
+<div id="app" class="mode-kb offline">
+  <header id="bar">
+    <div class="seg" id="modeSeg">
+      <button data-mode="kb" class="on" aria-label="Keyboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg><span>Keyboard</span></button>
+      <button data-mode="tp" aria-label="Touchpad">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 15h18M12 15v6"/></svg><span>Touchpad</span></button>
+    </div>
+    <div id="tabs"><div class="seg" id="stripSeg">
+      <button data-strip="fn" data-long="F1–F12" data-short="Fn">F1–F12</button>
+      <button data-strip="nav" data-long="Nav" data-short="Nav">Nav</button>
+      <button data-strip="media" data-long="Media" data-short="♪">Media</button>
+      <button data-strip="sc" data-long="Shortcuts" data-short="⌘/Ctrl">Shortcuts</button>
+    </div></div>
+    <div class="spacer"></div>
+    <div class="chip" id="caps">⇪ Caps</div>
+    <button class="chip" id="stat"><i class="dot" id="dot"></i><b id="osName">Windows</b><span id="osHow"></span></button>
+    <button class="icon" id="fsBtn" aria-label="Full screen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <button class="icon" id="setBtn" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </header>
+
+  <main id="main">
+    <section class="view" id="kb">
+      <div class="row" id="strip"></div>
+      <div class="row" id="r1"></div>
+      <div class="row" id="r2"></div>
+      <div class="row" id="r3"></div>
+      <div class="row" id="r4"></div>
+      <div class="row" id="r5"></div>
+    </section>
+    <section class="view" id="tp">
+      <div id="padwrap">
+        <div id="pad"><div class="hint">1 finger: move · tap: click · 2-finger tap: right-click · 2-finger drag: scroll · double-tap &amp; drag: select</div></div>
+        <div id="vscroll"><svg viewBox="0 0 24 60" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 12l6-6 6 6M6 48l6 6 6-6M12 14v32"/></svg></div>
+      </div>
+      <div id="tpbar"></div>
+    </section>
+  </main>
+</div>
+
+<div id="banner"></div>
+
+<div class="overlay" id="rotate">
+  <div class="card">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
+    <h2>Turn your phone sideways</h2>
+    <p>PicoKeys is laid out for landscape. It still works in portrait, but keys will be narrow.</p>
+    <div class="btnrow"><button class="b" id="rotOk">Continue in portrait</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="secure">
+  <div class="card">
+    <svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg>
+    <h2>Set your own hotspot password</h2>
+    <p>PicoKeys is still using the default password “picokeys”, so anyone nearby could join and type on your computer.</p>
+    <div id="sForm">
+      <div class="stack full"><span>Network name</span><input type="text" id="sName" maxlength="32" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+      <div class="stack"><span>New password (8–63)</span><input type="password" id="sPass" maxlength="63" autocomplete="new-password"></div>
+      <div class="stack"><span>Type it again</span><input type="password" id="sPass2" maxlength="63" autocomplete="new-password"></div>
+    </div>
+    <div class="msg" id="smsg"></div>
+    <div id="sDone" class="done-step" style="display:none"></div>
+    <div class="btnrow" id="sBtns" style="margin-top:8px">
+      <button class="b" id="sLater">Later</button>
+      <button class="b pri" id="sSave">Save &amp; restart</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="cna">
+  <div class="card">
+    <h2>PicoKeys is connected</h2>
+    <p>This is the iPhone’s Wi-Fi sign-in window. The keyboard works here, but for the full screen:</p>
+    <p style="color:var(--txt)">1. Tap <b>Done</b> (or <b>Cancel</b> → <b>Use Without Internet</b>) at the top right.<br>
+       2. Open Safari and go to <b>192.168.4.1</b><br>
+       3. Optional: Share → <b>Add to Home Screen</b> for a full-screen app.</p>
+    <div class="btnrow"><button class="b pri" id="cnaOk">Got it</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="settings">
+  <div class="card">
+    <div class="grid">
+      <div>
+        <div class="sect">Computer</div>
+        <div class="field"><span>Operating system<small id="detTxt">Detecting…</small></span>
+          <select id="osSel">
+            <option value="auto">Auto-detect</option><option value="win">Windows</option><option value="mac">macOS</option>
+            <option value="linux">Linux</option><option value="chrome">ChromeOS</option>
+          </select></div>
+        <div class="sect">Touchpad</div>
+        <div class="field"><span>Pointer speed</span><input type="range" id="spd" min="0.5" max="4" step="0.1"></div>
+        <div class="field"><span>Scroll speed</span><input type="range" id="scr" min="0.3" max="3" step="0.1"></div>
+        <div class="field"><span>Natural scrolling<small>Content follows your fingers</small></span><input type="checkbox" id="nat"></div>
+        <div class="field"><span>Tap to click</span><input type="checkbox" id="tap"></div>
+        <div class="sect">Feel</div>
+        <div class="field"><span>Vibrate on key press<small>Android only</small></span><input type="checkbox" id="vib"></div>
+      </div>
+      <div>
+        <div class="sect">PicoKeys hotspot</div>
+        <div class="stack"><span>Network name</span><input type="text" id="ssid" maxlength="32" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+        <div class="stack"><span>Password (8–63 characters)</span><input type="password" id="pass" maxlength="63" autocomplete="new-password" placeholder="New password"></div>
+        <div class="msg" id="wmsg"></div>
+        <div class="btnrow" style="justify-content:flex-start">
+          <button class="b pri" id="wSave">Save &amp; restart</button>
+          <button class="b danger" id="wReset">Reset to default</button>
+        </div>
+        <p class="ver" id="ver">Hold BOOTSEL for 5 s to reset the hotspot to its default name and password “picokeys”.</p>
+      </div>
+    </div>
+    <div class="btnrow" style="margin-top:10px"><button class="b pri" id="setDone">Done</button></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const app = $('#app');
+
+// ------------------------------------------------------------------ prefs
+const PREF_KEY = 'picokeys.prefs.v1';
+const prefs = {os:'auto', speed:1.6, scroll:1, natural:true, tap:true, vibrate:true, strip:'fn', mode:'kb'};
+try { Object.assign(prefs, JSON.parse(localStorage.getItem(PREF_KEY) || '{}')); } catch (e) {}
+function savePrefs(){ try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) {} }
+
+// ------------------------------------------------------------------ connection
+let ws = null, wsOpen = false, retryT = null;
+let status = {usb:0, caps:0, os:'unknown', det:0, ssid:'', v:''};
+
+function connect(){
+  clearTimeout(retryT);
+  const host = location.host || '192.168.4.1';
+  try { ws = new WebSocket('ws://' + host + '/ws'); } catch (e) { retryT = setTimeout(connect, 1500); return; }
+  ws.binaryType = 'arraybuffer';
+  ws.onopen = () => { wsOpen = true; resetInputState(); send([8]); updateStatus(); };
+  ws.onclose = () => { wsOpen = false; resetInputState(); updateStatus(); retryT = setTimeout(connect, 1000); };
+  ws.onerror = () => { try { ws.close(); } catch (e) {} };
+  ws.onmessage = ev => {
+    if (typeof ev.data !== 'string') return;
+    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (m.t === 'status') { status = m; updateStatus(); maybeSecure(); }
+    else if (m.t === 'saved') onSaved(!!m.ok);
+  };
+}
+function send(bytes){
+  if (wsOpen && ws.readyState === 1 && bytes.length) ws.send(new Uint8Array(bytes));
+}
+function sendText(t){ if (wsOpen && ws.readyState === 1) ws.send(t); }
+setInterval(() => send([0]), 500);   // heartbeat; the Pico releases keys if it stops
+document.addEventListener('visibilitychange', () => { if (document.hidden) { send([8]); resetInputState(); } });
+window.addEventListener('pagehide', () => send([8]));
+
+// ------------------------------------------------------------------ HID codes
+const K = {};
+'abcdefghijklmnopqrstuvwxyz'.split('').forEach((c, i) => K[c] = 0x04 + i);
+'1234567890'.split('').forEach((c, i) => K[c] = 0x1E + i);
+Object.assign(K, {enter:0x28, esc:0x29, bksp:0x2A, tab:0x2B, space:0x2C, minus:0x2D, equal:0x2E, lbr:0x2F, rbr:0x30,
+  bslash:0x31, semi:0x33, quote:0x34, grave:0x35, comma:0x36, dot:0x37, slash:0x38, caps:0x39,
+  prtsc:0x46, scrlk:0x47, pause:0x48, ins:0x49, home:0x4A, pgup:0x4B, del:0x4C, end:0x4D, pgdn:0x4E,
+  right:0x4F, left:0x50, down:0x51, up:0x52, menu:0x65});
+for (let i = 1; i <= 12; i++) K['f' + i] = 0x39 + i;
+
+// Modifiers (shared by keyboard + touchpad)
+const MODS = {
+  ctrl:  {code:0xE0, fingers:0, latch:0, used:false, sent:false, users:0, sw:false},
+  shift: {code:0xE1, fingers:0, latch:0, used:false, sent:false, users:0, sw:false},
+  alt:   {code:0xE2, fingers:0, latch:0, used:false, sent:false, users:0, sw:false},
+  gui:   {code:0xE3, fingers:0, latch:0, used:false, sent:false, users:0, sw:false},
+};
+
+// ------------------------------------------------------------------ OS profiles
+const OSN = {win:'Windows', mac:'macOS', linux:'Linux', chrome:'ChromeOS'};
+function effOS(){
+  if (prefs.os !== 'auto') return prefs.os;
+  if (status.det && OSN[status.os]) return status.os;
+  return 'win';
+}
+const ML = {   // modifier labels per OS
+  win:   {ctrl:'Ctrl', shift:'Shift', alt:'Alt', gui:'⊞ Win'},
+  mac:   {ctrl:'⌃ ctrl', shift:'⇧ shift', alt:'⌥ opt', gui:'⌘ cmd'},
+  linux: {ctrl:'Ctrl', shift:'Shift', alt:'Alt', gui:'Super'},
+  chrome:{ctrl:'Ctrl', shift:'Shift', alt:'Alt', gui:'Launcher'},
+};
+const MLshort = {
+  win:{ctrl:'Ctrl',shift:'Shift',alt:'Alt',gui:'Win'}, mac:{ctrl:'⌃',shift:'⇧',alt:'⌥',gui:'⌘'},
+  linux:{ctrl:'Ctrl',shift:'Shift',alt:'Alt',gui:'Super'}, chrome:{ctrl:'Ctrl',shift:'Shift',alt:'Alt',gui:'Search'},
+};
+function shortcuts(os){
+  const P = os === 'mac' ? 'gui' : 'ctrl';
+  const sym = os === 'mac' ? '⌘' : 'Ctrl+';
+  const L = [
+    ['Copy', sym+'C', [P], 'c'], ['Cut', sym+'X', [P], 'x'], ['Paste', sym+'V', [P], 'v'],
+    ['Undo', sym+'Z', [P], 'z'],
+    os === 'win' ? ['Redo', 'Ctrl+Y', ['ctrl'], 'y'] : ['Redo', os==='mac' ? '⇧⌘Z' : 'Ctrl+⇧Z', [P,'shift'], 'z'],
+    ['All', sym+'A', [P], 'a'], ['Find', sym+'F', [P], 'f'], ['Save', sym+'S', [P], 's'],
+  ];
+  if (os === 'mac') L.push(
+    ['Apps', '⌘Tab', 'switch', 'gui'], ['Search', '⌘Space', ['gui'], 'space'],
+    ['Mission', '⌃↑', ['ctrl'], 'up'], ['Close', '⌘W', ['gui'], 'w'], ['Quit', '⌘Q', ['gui'], 'q'],
+    ['Shot', '⇧⌘4', ['gui','shift'], '4'], ['Lock', '⌃⌘Q', ['ctrl','gui'], 'q']);
+  else if (os === 'win') L.push(
+    ['Switch', 'Alt+Tab', 'switch', 'alt'], ['Start', 'Win', [], 'gui'], ['Desktop', 'Win+D', ['gui'], 'd'],
+    ['Close', 'Alt+F4', ['alt'], 'f4'], ['Snip', 'Win+⇧S', ['gui','shift'], 's'],
+    ['Tasks', 'Ctrl+⇧Esc', ['ctrl','shift'], 'esc'], ['Lock', 'Win+L', ['gui'], 'l']);
+  else if (os === 'linux') L.push(
+    ['Switch', 'Alt+Tab', 'switch', 'alt'], ['Super', 'Super', [], 'gui'], ['Desktop', 'Super+D', ['gui'], 'd'],
+    ['Close', 'Alt+F4', ['alt'], 'f4'], ['Shot', 'PrtSc', [], 'prtsc'], ['Term', 'Ctrl+Alt+T', ['ctrl','alt'], 't'],
+    ['Lock', 'Super+L', ['gui'], 'l']);
+  else L.push(
+    ['Switch', 'Alt+Tab', 'switch', 'alt'], ['Launcher', 'Search', [], 'gui'], ['New tab', 'Ctrl+T', ['ctrl'], 't'],
+    ['Close', 'Ctrl+W', ['ctrl'], 'w'], ['Back', 'Alt+←', ['alt'], 'left'], ['Lock', 'Search+L', ['gui'], 'l']);
+  return L;
+}
+
+// ------------------------------------------------------------------ keyboard layout
+// [code, label, shiftLabel, width, cls]
+const ROWS = {
+  r1: [['esc','Esc',0,1,'wide'],['grave','`','~'],['1','1','!'],['2','2','@'],['3','3','#'],['4','4','$'],['5','5','%'],
+       ['6','6','^'],['7','7','&'],['8','8','*'],['9','9','('],['0','0',')'],['minus','-','_'],['equal','=','+'],['bksp','⌫',0,1.5,'wide']],
+  r2: [['tab','Tab',0,1.75,'wide'],'q','w','e','r','t','y','u','i','o','p',['lbr','[','{'],['rbr',']','}'],['bslash','\\','|',1.75]],
+  r3: [['caps','Caps',0,1.75,'wide'],'a','s','d','f','g','h','j','k','l',['semi',';',':'],['quote',"'",'"'],['enter','Enter',0,2.75,'wide']],
+  r4: [['@shift',null,0,2.25],'z','x','c','v','b','n','m',[ 'comma',',','<'],['dot','.','>'],['slash','/','?'],
+       ['@shift',null,0,1.25],['up','↑',0,1,'wide'],['del','Del',0,1,'wide']],
+};
+function bottomRow(os){
+  const mac = os === 'mac';
+  const left  = mac ? ['ctrl','alt','gui'] : ['ctrl','gui','alt'];
+  const right = mac ? ['gui','alt'] : ['alt','ctrl'];
+  const r = [];
+  left.forEach((m, i) => r.push(['@' + m, null, 0, i === 0 ? 1.5 : 1.25]));
+  r.push(['space', '', 0, 6]);
+  right.forEach(m => r.push(['@' + m, null, 0, 1.25]));
+  r.push(['left','←',0,1,'wide'], ['down','↓',0,1,'wide'], ['right','→',0,1,'wide']);
+  return r;
+}
+const STRIPS = {
+  fn: () => [...Array(12)].map((_, i) => ['f' + (i + 1), 'F' + (i + 1), 0, 1, 'fn']).concat([['prtsc','PrtSc',0,1.1,'fn'],['ins','Ins',0,1,'fn']]),
+  nav: () => [['ins','Insert',0,1,'fn'],['home','Home',0,1,'fn'],['pgup','Pg Up',0,1,'fn'],['del','Delete',0,1,'fn'],
+              ['end','End',0,1,'fn'],['pgdn','Pg Dn',0,1,'fn'],['prtsc','PrtSc',0,1,'fn'],['scrlk','ScrLk',0,1,'fn'],
+              ['pause','Pause',0,1,'fn'],['menu','Menu',0,1,'fn'],['esc','Esc',0,1,'fn']],
+  media: () => [['#182','prev'],['#205','play'],['#181','next'],['#183','stop'],['#226','mute'],
+                ['#234','vdn'],['#233','vup'],['#112','bdn'],['#111','bup']],
+  sc: null,
+};
+const MEDIA_ICON = {
+  prev:'<path d="M19 6v12l-8-6zM5 6v12M11 6v12l-6-6z" fill="currentColor"/>',
+  play:'<path d="M5 5v14l8-7zM15 5h2v14h-2zM19 5h2v14h-2z" fill="currentColor"/>',
+  next:'<path d="M5 6v12l8-6zM19 6v12M13 6v12l6-6z" fill="currentColor"/>',
+  stop:'<rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/>',
+  mute:'<path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  vdn:'<path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  vup:'<path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 12h5M18.5 9.5v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  bdn:'<circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  bup:'<circle cx="12" cy="12" r="4" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+};
+const MEDIA_NAME = {prev:'Previous', play:'Play/Pause', next:'Next', stop:'Stop', mute:'Mute', vdn:'Volume down', vup:'Volume up', bdn:'Brightness down', bup:'Brightness up'};
+
+function el(tag, cls, html){ const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+
+function makeKey(spec){
+  if (typeof spec === 'string') spec = [spec, spec.toUpperCase(), 0, 1];
+  const [id, label, shift, w = 1, cls = ''] = spec;
+  const k = el('div', 'k ' + cls);
+  k.style.setProperty('--w', w);
+  if (id[0] === '@') {                // modifier
+    const m = id.slice(1);
+    k.classList.add('mod', 'wide');
+    k.dataset.mod = m;
+    k.innerHTML = '<span class="p">' + (label || ML[effOS()][m]) + '</span>';
+  } else if (id[0] === '#') {         // consumer / media key
+    k.classList.add('media', 'fn');
+    k.dataset.cons = id.slice(1);
+    k.setAttribute('aria-label', MEDIA_NAME[label]);
+    k.innerHTML = '<svg viewBox="0 0 24 24">' + MEDIA_ICON[label] + '</svg>';
+  } else {
+    k.dataset.code = K[id];
+    if (/^[a-z]$/.test(id)) k.dataset.letter = id;
+    if (shift) { k.classList.add('sym'); k.dataset.shift = shift; k.dataset.base = label;
+      k.innerHTML = '<span class="s">' + esc(shift) + '</span><span class="p">' + esc(label) + '</span>'; }
+    else k.innerHTML = '<span class="p">' + esc(label) + '</span>';
+    if (id === 'caps') k.id = 'capsKey';
+  }
+  return k;
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function buildRow(id, specs){ const r = $('#' + id); r.innerHTML = ''; specs.forEach(s => r.appendChild(makeKey(s))); }
+
+function buildStrip(){
+  const r = $('#strip'); r.innerHTML = '';
+  const os = effOS();
+  if (prefs.strip === 'sc') {
+    shortcuts(os).forEach((s, i) => {
+      const k = el('div', 'k sc', '<span>' + esc(s[0]) + '</span><small>' + esc(s[1]) + '</small>');
+      k.dataset.sc = i;
+      r.appendChild(k);
+    });
+  } else {
+    STRIPS[prefs.strip]().forEach(s => r.appendChild(makeKey(s)));
+  }
+  document.querySelectorAll('#stripSeg button').forEach(b => b.classList.toggle('on', b.dataset.strip === prefs.strip));
+}
+
+function buildTpBar(){
+  const bar = $('#tpbar'); bar.innerHTML = '';
+  const os = effOS(), L = MLshort[os];
+  ['ctrl','shift','alt','gui'].forEach(m => bar.appendChild(makeKey(['@' + m, L[m], 0, .9])));
+  [['Left', 1, 2.6], ['Middle', 4, 1.1], ['Right', 2, 2.6]].forEach(([n, bit, w]) => {
+    const k = el('div', 'k btn', n); k.style.setProperty('--w', w); k.dataset.btn = bit; bar.appendChild(k);
+  });
+}
+
+let builtFor = '';
+function buildAll(){
+  const os = effOS();
+  builtFor = os;
+  buildRow('r1', ROWS.r1.map(s => (s[0] === 'bksp' && os === 'mac') ? ['bksp','⌫ delete',0,1.5,'wide'] : s));
+  buildRow('r2', ROWS.r2);
+  buildRow('r3', ROWS.r3.map(s => (s[0] === 'enter' && os === 'mac') ? ['enter','return',0,2.75,'wide'] : s));
+  buildRow('r4', ROWS.r4.map(s => (s[0] === 'del' && os === 'mac') ? ['del','⌦',0,1,'wide'] : s));
+  buildRow('r5', bottomRow(os));
+  buildStrip();
+  buildTpBar();
+  renderMods();
+}
+
+// ------------------------------------------------------------------ modifier engine
+// Tap a modifier: one-shot (applies to next key). Tap again: locked. Tap again: off.
+// Hold a modifier with one finger while pressing keys with another: works too.
+function modDownBytes(b, uses){
+  for (const n in MODS) {
+    const m = MODS[n];
+    if (m.fingers > 0 || m.latch > 0) {
+      if (!m.sent) { b.push(1, m.code); m.sent = true; }
+      if (m.fingers > 0) m.used = true;
+      else if (m.latch === 1) { m.users++; uses.push(m); }
+    }
+  }
+}
+function releaseIfUnwanted(m, b){
+  if (m.sent && m.fingers === 0 && m.latch === 0 && m.users === 0 && !m.sw) { b.push(2, m.code); m.sent = false; }
+}
+function finishUses(uses, b){
+  uses.forEach(m => { m.users = Math.max(0, m.users - 1); if (m.users === 0 && m.latch === 1) m.latch = 0; releaseIfUnwanted(m, b); });
+  renderMods();
+}
+function modFinger(name, down){
+  const m = MODS[name], b = [];
+  if (down) { if (m.fingers++ === 0) m.used = false; }
+  else {
+    m.fingers = Math.max(0, m.fingers - 1);
+    if (m.fingers === 0) {
+      if (m.used) { if (m.latch === 1) m.latch = 0; }
+      else {
+        m.latch = (m.latch + 1) % 3;
+        if (m.latch === 2 && !m.sent) { b.push(1, m.code); m.sent = true; }
+      }
+      releaseIfUnwanted(m, b);
+    }
+  }
+  send(b); renderMods();
+}
+function renderMods(){
+  document.querySelectorAll('.k.mod').forEach(k => {
+    const m = MODS[k.dataset.mod];
+    k.classList.toggle('held', m.fingers > 0);
+    k.classList.toggle('latched', m.latch === 1);
+    k.classList.toggle('locked', m.latch === 2);
+  });
+  const sh = MODS.shift.fingers > 0 || MODS.shift.latch > 0;
+  const upper = sh !== !!status.caps;
+  document.querySelectorAll('#kb .k[data-letter]').forEach(k => {
+    k.firstChild.textContent = upper ? k.dataset.letter.toUpperCase() : k.dataset.letter;
+  });
+  document.querySelectorAll('#kb .k.sym').forEach(k => k.classList.toggle('shifted', sh));
+  const ck = $('#capsKey'); if (ck) ck.classList.toggle('capson', !!status.caps);
+}
+function resetInputState(){
+  for (const n in MODS) Object.assign(MODS[n], {fingers:0, latch:0, used:false, sent:false, users:0, sw:false});
+  clearTimeout(swTimer); swMod = null;
+  btnMask = 0; dragging = false; padTouches.clear();
+  active.forEach(a => a.el && a.el.classList.remove('down'));
+  active.clear();
+  renderMods();
+}
+
+// ------------------------------------------------------------------ app switcher (Alt/Cmd+Tab)
+let swMod = null, swTimer = null;
+function switcher(modName){
+  const m = MODS[modName], b = [];
+  if (!swMod) { swMod = m; if (!m.sent) { b.push(1, m.code); m.sent = true; } m.sw = true; }
+  b.push(1, K.tab, 2, K.tab);
+  send(b);
+  clearTimeout(swTimer);
+  swTimer = setTimeout(() => { const mm = swMod; swMod = null; if (!mm) return; mm.sw = false; const bb = []; releaseIfUnwanted(mm, bb); send(bb); }, 1000);
+}
+function sendCombo(mods, key){
+  const b = [], mine = [];
+  mods.forEach(n => { const m = MODS[n]; if (!m.sent) { b.push(1, m.code); mine.push(m); } });
+  const code = MODS[key] ? MODS[key].code : K[key];
+  b.push(1, code, 2, code);
+  mine.reverse().forEach(m => b.push(2, m.code));
+  send(b);
+}
+
+// ------------------------------------------------------------------ key presses
+const active = new Map();   // pointerId -> {el, kind, ...}
+function buzz(){ if (prefs.vibrate && navigator.vibrate) { try { navigator.vibrate(8); } catch (e) {} } }
+
+function onKeyDown(e){
+  const k = e.target.closest('.k');
+  if (!k || active.has(e.pointerId)) return;
+  e.preventDefault();
+  try { k.setPointerCapture(e.pointerId); } catch (_) {}
+  const a = {el:k};
+  k.classList.add('down');
+  buzz();
+  if (k.dataset.mod) { a.kind = 'mod'; modFinger(k.dataset.mod, true); }
+  else if (k.dataset.code) {
+    a.kind = 'key'; a.code = +k.dataset.code; a.uses = [];
+    const b = []; modDownBytes(b, a.uses); b.push(1, a.code); send(b); renderMods();
+  } else if (k.dataset.cons) { a.kind = 'cons'; const u = +k.dataset.cons; send([6, u & 255, u >> 8]); }
+  else if (k.dataset.btn) { a.kind = 'btn'; a.bit = +k.dataset.btn; a.uses = []; mouseDown(a.bit, a.uses); }
+  else if (k.dataset.sc) {
+    a.kind = 'sc';
+    const s = shortcuts(effOS())[+k.dataset.sc];
+    if (s[2] === 'switch') switcher(s[3]); else sendCombo(s[2], s[3]);
+  }
+  active.set(e.pointerId, a);
+}
+function onKeyUp(e){
+  const a = active.get(e.pointerId);
+  if (!a) return;
+  active.delete(e.pointerId);
+  a.el.classList.remove('down');
+  if (a.kind === 'mod') modFinger(a.el.dataset.mod, false);
+  else if (a.kind === 'key') { const b = [2, a.code]; finishUses(a.uses, b); send(b); }
+  else if (a.kind === 'cons') send([7]);
+  else if (a.kind === 'btn') mouseUp(a.bit, a.uses);
+}
+['#kb', '#tpbar'].forEach(sel => {
+  const r = $(sel);
+  r.addEventListener('pointerdown', onKeyDown);
+  r.addEventListener('pointerup', onKeyUp);
+  r.addEventListener('pointercancel', onKeyUp);
+  r.addEventListener('lostpointercapture', onKeyUp);
+});
+
+// ------------------------------------------------------------------ touchpad
+let btnMask = 0;
+function mouseDown(bit, uses){ const b = []; modDownBytes(b, uses); btnMask |= bit; b.push(4, btnMask); send(b); renderMods(); }
+function mouseUp(bit, uses){ btnMask &= ~bit; const b = [4, btnMask]; finishUses(uses, b); send(b); }
+function click(bit){ const uses = [], b = []; modDownBytes(b, uses); b.push(4, btnMask | bit, 4, btnMask); finishUses(uses, b); send(b); buzz(); }
+
+let mvX = 0, mvY = 0, scY = 0, scX = 0;
+function flushMove(){
+  const ix = Math.trunc(mvX), iy = Math.trunc(mvY);
+  if (ix || iy) {
+    mvX -= ix; mvY -= iy;
+    const cx = Math.max(-32000, Math.min(32000, ix)), cy = Math.max(-32000, Math.min(32000, iy));
+    send([3, cx & 255, (cx >> 8) & 255, cy & 255, (cy >> 8) & 255]);
+  }
+  requestAnimationFrame(flushMove);
+}
+requestAnimationFrame(flushMove);
+
+function addScroll(dx, dy){
+  const step = 14 / prefs.scroll, dir = prefs.natural ? 1 : -1;
+  scY += dy; scX += dx;
+  let w = 0, p = 0;
+  while (scY >= step) { scY -= step; w += dir; }
+  while (scY <= -step) { scY += step; w -= dir; }
+  while (scX >= step) { scX -= step; p -= dir; }
+  while (scX <= -step) { scX += step; p += dir; }
+  if (w || p) {
+    w = Math.max(-127, Math.min(127, w)); p = Math.max(-127, Math.min(127, p));
+    send([5, w & 255, p & 255]);
+  }
+}
+
+const pad = $('#pad');
+const padTouches = new Map();
+let gStart = 0, gMoved = false, gMax = 0, lastTap = 0, dragCand = false, dragging = false, dragUses = [];
+pad.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  try { pad.setPointerCapture(e.pointerId); } catch (_) {}
+  const now = performance.now();
+  padTouches.set(e.pointerId, {x:e.clientX, y:e.clientY, sx:e.clientX, sy:e.clientY, t:now});
+  if (padTouches.size === 1) {
+    gStart = now; gMoved = false; gMax = 1; scX = scY = 0;
+    dragCand = prefs.tap && (now - lastTap < 300);
+  }
+  gMax = Math.max(gMax, padTouches.size);
+});
+pad.addEventListener('pointermove', e => {
+  const t = padTouches.get(e.pointerId);
+  if (!t) return;
+  const now = performance.now();
+  const dx = e.clientX - t.x, dy = e.clientY - t.y, dt = Math.max(1, now - t.t);
+  t.x = e.clientX; t.y = e.clientY; t.t = now;
+  if (Math.hypot(e.clientX - t.sx, e.clientY - t.sy) > 8) gMoved = true;
+  if (padTouches.size === 1 && gMax === 1) {
+    if (dragCand && gMoved && !dragging) { dragging = true; dragUses = []; mouseDown(1, dragUses); }
+    const speed = Math.hypot(dx, dy) / dt;              // CSS px per ms
+    const gain = prefs.speed * (1 + Math.min(speed, 2.5) * 0.9);
+    mvX += dx * gain; mvY += dy * gain;
+  } else if (padTouches.size >= 2) {
+    addScroll(dx / padTouches.size, dy / padTouches.size);
+  }
+});
+function padEnd(e){
+  if (!padTouches.delete(e.pointerId)) return;
+  if (padTouches.size) return;
+  const now = performance.now();
+  if (dragging) { dragging = false; mouseUp(1, dragUses); lastTap = 0; }
+  else if (prefs.tap && !gMoved && now - gStart < 260) {
+    if (gMax === 1) { click(1); lastTap = now; }
+    else if (gMax === 2) { click(2); lastTap = 0; }
+    else { click(4); lastTap = 0; }
+  }
+  dragCand = false;
+}
+pad.addEventListener('pointerup', padEnd);
+pad.addEventListener('pointercancel', padEnd);
+
+// right-hand scroll strip
+const vs = $('#vscroll'); let vsY = null, vsId = null;
+vs.addEventListener('pointerdown', e => { e.preventDefault(); vsId = e.pointerId; vsY = e.clientY; scY = 0; try { vs.setPointerCapture(e.pointerId); } catch (_) {} });
+vs.addEventListener('pointermove', e => { if (e.pointerId !== vsId) return; addScroll(0, e.clientY - vsY); vsY = e.clientY; });
+const vsEnd = e => { if (e.pointerId === vsId) vsId = null; };
+vs.addEventListener('pointerup', vsEnd); vs.addEventListener('pointercancel', vsEnd);
+
+// ------------------------------------------------------------------ top bar
+function setMode(m){
+  prefs.mode = m; savePrefs();
+  app.classList.toggle('mode-kb', m === 'kb'); app.classList.toggle('mode-tp', m === 'tp');
+  document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  send([8]); resetInputState();
+  layout();
+}
+$('#modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setMode(b.dataset.mode); });
+$('#stripSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { prefs.strip = b.dataset.strip; savePrefs(); buildStrip(); layout(); } });
+
+function updateStatus(){
+  const dot = $('#dot');
+  dot.className = 'dot' + (wsOpen ? (status.usb ? ' ok' : ' mid') : '');
+  app.classList.toggle('offline', !wsOpen);
+  const os = effOS();
+  $('#osName').textContent = OSN[os];
+  $('#osHow').textContent = prefs.os === 'auto' ? (status.det ? 'auto' : 'default') : '';
+  $('#caps').classList.toggle('on', wsOpen && !!status.caps);
+  const bn = $('#banner');
+  if (!wsOpen) { bn.textContent = 'Connecting to PicoKeys… (join its Wi-Fi, then open 192.168.4.1)'; bn.classList.add('show'); }
+  else if (!status.usb) { bn.textContent = 'Connected – plug PicoKeys into a computer'; bn.classList.add('show'); }
+  else bn.classList.remove('show');
+  const det = status.det && OSN[status.os] ? 'Detected: ' + OSN[status.os] : (status.usb ? 'Not sure – using Windows' : 'Waiting for USB…');
+  $('#detTxt').textContent = det;
+  if (status.v) $('#ver').innerHTML = 'Firmware ' + esc(status.v) + ' · Hold BOOTSEL for 5 s to reset the hotspot to its default name and password “picokeys”.';
+  if (os !== builtFor) { buildAll(); layout(); }
+  else renderMods();
+}
+$('#stat').addEventListener('click', openSettings);
+
+// fullscreen + landscape lock (Android Chrome); hidden where unsupported (iPhone)
+const fsOK = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+if (!fsOK) $('#fsBtn').style.display = 'none';
+$('#fsBtn').addEventListener('click', async () => {
+  try {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+      const de = document.documentElement;
+      await (de.requestFullscreen || de.webkitRequestFullscreen).call(de);
+      if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+    }
+  } catch (e) {}
+});
+
+// ------------------------------------------------------------------ settings
+let pendingSsid = '';
+function openSettings(){
+  $('#osSel').value = prefs.os; $('#spd').value = prefs.speed; $('#scr').value = prefs.scroll;
+  $('#nat').checked = prefs.natural; $('#tap').checked = prefs.tap; $('#vib').checked = prefs.vibrate;
+  if (!$('#ssid').value) $('#ssid').value = status.ssid || '';
+  $('#wmsg').textContent = '';
+  send([8]); resetInputState();
+  $('#settings').classList.add('show');
+}
+$('#setBtn').addEventListener('click', openSettings);
+$('#setDone').addEventListener('click', () => $('#settings').classList.remove('show'));
+$('#settings').addEventListener('click', e => { if (e.target.id === 'settings') $('#settings').classList.remove('show'); });
+$('#osSel').addEventListener('change', e => { prefs.os = e.target.value; savePrefs(); updateStatus(); });
+$('#spd').addEventListener('input', e => { prefs.speed = +e.target.value; savePrefs(); });
+$('#scr').addEventListener('input', e => { prefs.scroll = +e.target.value; savePrefs(); });
+$('#nat').addEventListener('change', e => { prefs.natural = e.target.checked; savePrefs(); });
+$('#tap').addEventListener('change', e => { prefs.tap = e.target.checked; savePrefs(); });
+$('#vib').addEventListener('change', e => { prefs.vibrate = e.target.checked; savePrefs(); });
+$('#wSave').addEventListener('click', () => {
+  const s = $('#ssid').value.trim(), p = $('#pass').value, m = $('#wmsg');
+  if (!wsOpen) { m.textContent = 'Not connected to PicoKeys.'; return; }
+  if (!checkWifiFields(s, p, m)) return;
+  pendingSsid = s;
+  m.textContent = 'Saving…';
+  sendText('W' + s + '\n' + p);
+});
+$('#wReset').addEventListener('click', () => {
+  if (!wsOpen) { $('#wmsg').textContent = 'Not connected to PicoKeys.'; return; }
+  if (!confirm('Reset the hotspot to its default name and the password “picokeys”? PicoKeys will restart.')) return;
+  pendingSsid = '';
+  sendText('R');
+});
+// let text fields work normally inside settings
+document.querySelectorAll('#settings input,#settings select,#secure input').forEach(i => i.addEventListener('pointerdown', e => e.stopPropagation()));
+
+// ------------------------------------------------------------------ orientation + scaling
+let rotDismissed = false;
+const portraitMQ = window.matchMedia('(orientation: portrait)');
+function checkOrientation(){
+  const portrait = portraitMQ.matches;
+  if (!portrait) rotDismissed = false;
+  $('#rotate').classList.toggle('show', portrait && !rotDismissed);
+}
+$('#rotOk').addEventListener('click', () => { rotDismissed = true; checkOrientation(); });
+if (portraitMQ.addEventListener) portraitMQ.addEventListener('change', checkOrientation); else portraitMQ.addListener(checkOrientation);
+
+function layout(){
+  const main = $('#main');
+  const W = main.clientWidth, H = main.clientHeight || window.innerHeight;
+  // 15.5 key units across, 5.8 rows tall (5 rows + function strip)
+  const u = Math.max(18, Math.min(W / 15.5, H / 5.8));
+  const r = document.documentElement.style;
+  r.setProperty('--u', u + 'px');
+  r.setProperty('--gap', Math.max(2, Math.round(u * 0.08)) + 'px');
+  r.setProperty('--fs', Math.max(9, Math.min(22, u * 0.32)) + 'px');
+  r.setProperty('--r', Math.max(4, Math.round(u * 0.14)) + 'px');
+  fitBar();
+}
+// Progressively compact the top bar until it fits the screen width
+function fitBar(){
+  const bar = $('#bar');
+  const steps = [
+    () => $('#osHow').style.display = 'none',
+    () => document.querySelectorAll('#modeSeg span').forEach(s => s.style.display = 'none'),
+    () => document.querySelectorAll('#stripSeg button').forEach(b => b.textContent = b.dataset.short),
+    () => $('#caps').style.fontSize = '0',
+    () => $('#tabs').style.display = 'none',
+  ];
+  $('#tabs').style.display = '';
+  $('#osHow').style.display = '';
+  document.querySelectorAll('#modeSeg span').forEach(s => s.style.display = '');
+  document.querySelectorAll('#stripSeg button').forEach(b => b.textContent = b.dataset.long);
+  $('#caps').style.fontSize = '';
+  const fits = () => bar.scrollWidth <= bar.clientWidth + 1 && $('#stripSeg').scrollWidth <= $('#tabs').clientWidth + 1;
+  for (const st of steps) { if (fits()) break; st(); }
+}
+window.addEventListener('resize', () => { layout(); checkOrientation(); });
+window.addEventListener('orientationchange', () => setTimeout(() => { layout(); checkOrientation(); }, 250));
+
+// block iOS pinch/double-tap zoom and context menus
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('touchmove', e => { if (!e.target.closest('.overlay .card')) e.preventDefault(); }, {passive:false});
+document.addEventListener('dblclick', e => e.preventDefault());
+
+// ------------------------------------------------------------------ first-run password prompt
+let secureLater = false;
+try { secureLater = sessionStorage.getItem('pk.later') === '1'; } catch (e) {}
+function maybeSecure(){
+  if (!status.def || secureLater || $('#secure').classList.contains('show')) return;
+  $('#sName').value = status.ssid || '';
+  $('#sPass').value = $('#sPass2').value = '';
+  $('#smsg').textContent = '';
+  $('#sDone').style.display = 'none'; $('#sBtns').style.display = ''; $('#sForm').style.display = '';
+  send([8]); resetInputState();
+  $('#secure').classList.add('show');
+}
+function checkWifiFields(name, pass, msgEl){
+  if (name.length < 1 || name.length > 32 || /["\\\n\r]/.test(name) || /[^\x20-\x7e]/.test(name)) { msgEl.textContent = 'Name: 1–32 plain characters, no quotes or backslashes.'; return false; }
+  if (pass.length < 8 || pass.length > 63 || /[^\x20-\x7e]/.test(pass)) { msgEl.textContent = 'Password: 8–63 plain characters.'; return false; }
+  if (pass === 'picokeys') { msgEl.textContent = 'Pick something other than the default password.'; return false; }
+  return true;
+}
+$('#sLater').addEventListener('click', () => {
+  secureLater = true; try { sessionStorage.setItem('pk.later', '1'); } catch (e) {}
+  $('#secure').classList.remove('show'); showCnaTip();
+});
+$('#sSave').addEventListener('click', () => {
+  const n = $('#sName').value.trim(), p = $('#sPass').value, m = $('#smsg');
+  if (!wsOpen) { m.textContent = 'Not connected to PicoKeys.'; return; }
+  if (!checkWifiFields(n, p, m)) return;
+  if (p !== $('#sPass2').value) { m.textContent = 'The two passwords don’t match.'; return; }
+  pendingSsid = n; m.textContent = 'Saving…';
+  sendText('W' + n + '\n' + p);
+});
+function onSaved(ok){
+  const name = pendingSsid || status.ssid;
+  const txt = ok ? 'Saved. PicoKeys is restarting with the new password.' : 'Could not save those settings.';
+  $('#wmsg').textContent = txt;
+  $('#smsg').textContent = ok ? '' : txt;
+  if (ok && $('#secure').classList.contains('show')) {
+    $('#sBtns').style.display = 'none';
+    $('#sForm').style.display = 'none';
+    $('#sDone').style.display = '';
+    $('#sDone').innerHTML = 'Saved – PicoKeys is restarting.<br>Open <b>Settings → Wi-Fi</b>, tap <b>' + esc(name) +
+      '</b> and enter your new password. If your phone keeps the old one, tap ⓘ → <b>Forget This Network</b> and join again.';
+  }
+}
+
+// iPhone captive sign-in window (no "Safari" in its user agent)
+const UA = navigator.userAgent;
+const inCNA = /iPhone|iPad|iPod/.test(UA) && !/Safari\//.test(UA) && !navigator.standalone;
+function showCnaTip(){
+  let seen = false; try { seen = sessionStorage.getItem('pk.cna') === '1'; } catch (e) {}
+  if (inCNA && !seen && !$('#secure').classList.contains('show')) $('#cna').classList.add('show');
+}
+$('#cnaOk').addEventListener('click', () => { try { sessionStorage.setItem('pk.cna', '1'); } catch (e) {} $('#cna').classList.remove('show'); });
+setTimeout(showCnaTip, 1500);
+
+// ------------------------------------------------------------------ start
+buildAll();
+setMode(prefs.mode === 'tp' ? 'tp' : 'kb');
+updateStatus();
+checkOrientation();
+layout();
+connect();
+</script>
+</body>
+</html>
