@@ -401,7 +401,7 @@ PicoKeys builds on:
 - [Raspberry Pi Pico SDK](https://github.com/raspberrypi/pico-sdk): BSD-3-Clause
 - [TinyUSB](https://github.com/hathach/tinyusb): MIT
 - [lwIP](https://savannah.nongnu.org/projects/lwip/): BSD-style
-- [cyw43-driver](https://github.com/georgerobotics/cyw43-driver): see its own license, which covers use with RP2040/RP2350
+- [cyw43-driver](https://github.com/georgerobotics/cyw43-driver): Raspberry Pi licence (use with RP2040/RP2350 only); see THIRD_PARTY_NOTICES.md
 - `dhcpserver.c/.h` from [pico-examples](https://github.com/raspberrypi/pico-examples), originally from MicroPython: MIT (see `src/dhcpserver_LICENSE`)
 - The OS-detection approach is adapted from [QMK](https://github.com/qmk/qmk_firmware)'s `os_detection` feature
 
